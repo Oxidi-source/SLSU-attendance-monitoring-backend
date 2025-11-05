@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 5000;
 // Enhanced CORS configuration
 const corsOptions = {
   origin: [
-    "https://attendance-monitoring-client.vercel.app",
+    "https://slsu-attendance-monitoring-client.vercel.app",
     "http://localhost:3001", // for local development
     "http://localhost:3000", // for local development
     "http://localhost:5173", // for Vite dev server
