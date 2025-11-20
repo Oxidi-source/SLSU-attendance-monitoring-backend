@@ -30,7 +30,6 @@ const corsOptions = {
 
 // middleware
 app.use(cors(corsOptions));
-
 // REMOVE THIS LINE - it's causing the error:
 // app.options("*", cors(corsOptions));
 

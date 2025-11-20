@@ -58,10 +58,19 @@ exports.recordAttendance = async (req, res) => {
     }
 
     // TIME IN
+    // TIME IN
     if (!record) {
       if (role === "student" && schedule) {
-        if (currentTime > schedule.startTime) {
-          status = "Late";
+        const today = date; // already YYYY-MM-DD from now
+        const start = dayjs(`${today}T${schedule.startTime}`); // e.g., 2025-11-20T07:00
+        const actual = dayjs(`${today}T${currentTime}`); // e.g., 2025-11-20T09:53
+
+        const diffMinutes = actual.diff(start, "minute");
+
+        if (diffMinutes >= 15) {
+          status = "Cutting"; // 15+ mins late
+        } else if (diffMinutes > 0) {
+          status = "Late"; // <15 mins late
         }
       }
 
@@ -69,7 +78,7 @@ exports.recordAttendance = async (req, res) => {
         userId: user._id,
         role,
         date,
-        timeIn: currentTime, // ✅ PH time
+        timeIn: currentTime,
         status,
       });
 
@@ -78,21 +87,34 @@ exports.recordAttendance = async (req, res) => {
     }
 
     // TIME OUT
+    // TIME OUT
     if (!record.timeOut) {
-      record.timeOut = currentTime; // ✅ PH time
+      record.timeOut = currentTime;
 
       if (role === "student" && schedule) {
-        const wasLate = record.timeIn > schedule.startTime;
-        const isCutting = currentTime < schedule.endTime;
+        const start = dayjs(schedule.startTime, "HH:mm");
+        const end = dayjs(schedule.endTime, "HH:mm");
 
-        if (wasLate && isCutting) {
-          record.status = "Late & Cutting";
-        } else if (wasLate) {
-          record.status = "Late";
-        } else if (isCutting) {
-          record.status = "Cutting";
-        } else {
-          record.status = "On Time";
+        const timeIn = dayjs(record.timeIn, "HH:mm");
+        const timeOut = dayjs(currentTime, "HH:mm");
+
+        const diffIn = timeIn.diff(start, "minute");
+        const leftEarly = timeOut.isBefore(end);
+
+        const late0to14 = diffIn > 0 && diffIn < 15;
+        const late15plus = diffIn >= 15;
+
+        // 15+ mins late
+        if (late15plus) {
+          record.status = leftEarly ? "Late & Cutting" : "Cutting";
+        }
+        // 1–14 mins late
+        else if (late0to14) {
+          record.status = leftEarly ? "Late & Cutting" : "Late";
+        }
+        // On time
+        else {
+          record.status = leftEarly ? "Cutting" : "On Time";
         }
       }
 
@@ -364,6 +386,7 @@ exports.getUserAttendance = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 exports.getDailyAttendanceSummary = async (req, res) => {
   try {
     const { role, year, section, startDate, endDate } = req.query;
