@@ -17,16 +17,15 @@ dayjs.extend(timezone);
 exports.recordAttendance = async (req, res) => {
   const { identifier, role } = req.body;
 
-  // Always use PH timezone (start from UTC)
+  // PH timezone
   const now = dayjs.utc().tz("Asia/Manila");
   const date = now.format("YYYY-MM-DD");
   const currentTime = now.format("HH:mm");
-  console.log("DEBUG NOW:", now.format()); // full timestamp with timezone
+  console.log("DEBUG NOW:", now.format());
   console.log("DEBUG CURRENT TIME:", currentTime);
 
   try {
     let user;
-
     if (role === "student") {
       user = await Student.findOne({ studentNumber: identifier });
     } else if (role === "professor") {
@@ -57,13 +56,13 @@ exports.recordAttendance = async (req, res) => {
         .json({ message: "Class already ended. Cannot scan attendance." });
     }
 
-    // TIME IN
+    const today = date; // YYYY-MM-DD
+
     // TIME IN
     if (!record) {
       if (role === "student" && schedule) {
-        const today = date; // already YYYY-MM-DD from now
-        const start = dayjs(`${today}T${schedule.startTime}`); // e.g., 2025-11-20T07:00
-        const actual = dayjs(`${today}T${currentTime}`); // e.g., 2025-11-20T09:53
+        const start = dayjs(`${today}T${schedule.startTime}`);
+        const actual = dayjs(`${today}T${currentTime}`);
 
         const diffMinutes = actual.diff(start, "minute");
 
@@ -87,16 +86,15 @@ exports.recordAttendance = async (req, res) => {
     }
 
     // TIME OUT
-    // TIME OUT
     if (!record.timeOut) {
       record.timeOut = currentTime;
 
       if (role === "student" && schedule) {
-        const start = dayjs(schedule.startTime, "HH:mm");
-        const end = dayjs(schedule.endTime, "HH:mm");
+        const start = dayjs(`${today}T${schedule.startTime}`);
+        const end = dayjs(`${today}T${schedule.endTime}`);
 
-        const timeIn = dayjs(record.timeIn, "HH:mm");
-        const timeOut = dayjs(currentTime, "HH:mm");
+        const timeIn = dayjs(`${today}T${record.timeIn}`);
+        const timeOut = dayjs(`${today}T${currentTime}`);
 
         const diffIn = timeIn.diff(start, "minute");
         const leftEarly = timeOut.isBefore(end);
@@ -104,16 +102,11 @@ exports.recordAttendance = async (req, res) => {
         const late0to14 = diffIn > 0 && diffIn < 15;
         const late15plus = diffIn >= 15;
 
-        // 15+ mins late
         if (late15plus) {
           record.status = leftEarly ? "Late & Cutting" : "Cutting";
-        }
-        // 1–14 mins late
-        else if (late0to14) {
+        } else if (late0to14) {
           record.status = leftEarly ? "Late & Cutting" : "Late";
-        }
-        // On time
-        else {
+        } else {
           record.status = leftEarly ? "Cutting" : "On Time";
         }
       }
